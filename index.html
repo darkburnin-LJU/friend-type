@@ -121,7 +121,10 @@ button{font-family:inherit;font-size:inherit;cursor:pointer}
 .mt b{font-weight:500}
 .note{font-size:12.5px;color:var(--muted);margin-top:34px;
   padding-top:18px;border-top:1px solid var(--line)}
-.svstat{font-size:12.5px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.5}
+.svstat{font-size:12.5px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.6;
+  white-space:pre-line}
+.fbimg{display:block;width:100%;max-width:330px;margin:14px auto 0;
+  border:1px solid var(--line);border-radius:14px}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -179,6 +182,7 @@ button{font-family:inherit;font-size:inherit;cursor:pointer}
     <button class="btn ghost" onclick="again()">다시 하기</button>
   </div>
   <p class="svstat" id="svstat" hidden></p>
+  <img class="fbimg" id="fbimg" hidden alt="결과 카드">
 
   <p class="note">재미로 만든 테스트입니다. 심리 검사가 아닙니다.<br>만든 사람 · 엘제유</p>
 </section>
@@ -491,6 +495,7 @@ function draw(){
   m.appendChild(matchRow('부딪히는 친구', BAD[last.code], true));
 
   const st=document.getElementById('svstat'); st.textContent=''; st.hidden=true;
+  document.getElementById('fbimg').hidden=true;
   document.getElementById('svimg').textContent='이미지 저장';
   document.getElementById('cplink').textContent='링크 복사';
 }
@@ -590,6 +595,21 @@ function drawCard(){
    준비되는 데 시간이 걸리므로 화면이 열릴 때 미리 받아둔다 */
 const IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||
           (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+/* 카톡·인스타 같은 앱 안의 브라우저는 다운로드를 막는다.
+   그럴 때는 그림을 화면에 띄워서 길게 눌러 저장하게 한다.
+   여기 안 적힌 앱도 있어서, 저장이 다 실패했을 때도 같은 길로 빠진다 */
+const INAPP=/KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|NAVER|DaumApps|Threads|everytimeApp/i
+            .test(navigator.userAgent);
+function showImage(c){
+  try{
+    const im=document.getElementById('fbimg');
+    im.src=c.toDataURL('image/png');   // blob 주소는 앱 안에서 길게 눌러 저장이 안 된다
+    im.hidden=false;
+    im.scrollIntoView({block:'nearest',behavior:'smooth'});
+    return true;
+  }catch(e){ return false }
+}
+
 let dlCap=null;
 try{
   if(window.claude&&typeof claude.use==='function')
@@ -608,13 +628,22 @@ async function saveImage(){
   };
   b.disabled=true; b.textContent='만드는 중…'; say('');
 
-  let blob=null;
+  document.getElementById('fbimg').hidden=true;
+
+  let blob=null, card=null;
   try{
     try{await document.fonts.ready}catch(e){}
-    const c=drawCard();
-    blob=await new Promise(function(res){ if(c.toBlob)c.toBlob(res,'image/png'); else res(null) });
+    card=drawCard();
+    blob=await new Promise(function(res){ if(card.toBlob)card.toBlob(res,'image/png'); else res(null) });
   }catch(e){}
   if(!blob){ reset('저장 안 됨'); say('그림을 만들지 못했습니다. 화면을 캡처해 주세요.'); return }
+
+  /* 앱 안의 브라우저면 다운로드를 시도해봐야 오류만 뜨므로 바로 그림을 띄운다 */
+  if(INAPP && showImage(card)){
+    reset();
+    say('카톡·인스타 안에서는 바로 저장이 안 됩니다.\n아래 그림을 길게 눌러 저장해 주세요.');
+    return;
+  }
 
   const name='friend-'+last.code+'.png';   // 파일명에 한글을 쓰면 일부 브라우저가 이름을 버린다
   const touch=window.matchMedia?matchMedia('(pointer:coarse)').matches:false;
@@ -655,13 +684,18 @@ async function saveImage(){
     log.push(plan[i][0]+':'+r);
     if(r==='requested'){
       reset('저장됨');
-      if(IOS){ say('저장이 안 됐으면 카드를 화면 캐처해 주세요');
-               setTimeout(function(){ if(st.textContent.indexOf('캐처')>=0)say('') },7000) }
+      if(IOS){ say('저장이 안 됐으면 카드를 화면 캡처해 주세요');
+               setTimeout(function(){ if(st.textContent.indexOf('캡처')>=0)say('') },7000) }
       else say('');
       return;
     }
     if(r==='saved'||r==='delivered'){ reset('저장됨'); say(''); return }
     if(r==='ERR:AbortError'||r==='ERR:declined'){ reset(); say(''); return }   // 취소는 오류가 아니다
+  }
+  if(showImage(card)){
+    reset();
+    say('바로 저장이 안 됩니다.\n아래 그림을 길게 눌러 저장해 주세요.');
+    return;
   }
   reset('저장 안 됨');
   say('저장에 실패했습니다. 화면을 캡처해 주세요. [' + log.join(' / ') + ']');
