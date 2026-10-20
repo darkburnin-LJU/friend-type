@@ -525,10 +525,11 @@ function roundRect(x,l,t,w,h,r){
   x.lineTo(l,t+r); x.quadraticCurveTo(l,t,l+r,t); x.closePath();
 }
 function drawCard(){
-  const W=1000,H=1250,c=document.createElement('canvas');
+  const W=1000,H=1285,c=document.createElement('canvas');
   c.width=W;c.height=H;
   const x=c.getContext('2d');
-  const BG='#FAF8F4',FG='#1E211F',MUT='#6F7471',AC='#2F6F62',LINE='#E2DED3',TRK='#F1EFE8';
+  const BG='#FAF8F4',FG='#1E211F',MUT='#6F7471',AC='#2F6F62',LINE='#E2DED3',TRK='#F1EFE8',
+        WARM='#B4762A';
   const D='"Gowun Batang",serif', B='"Noto Sans KR",sans-serif';
   const t=TYPES[last.code];
 
@@ -582,12 +583,25 @@ function drawCard(){
     x.fillStyle=AC; x.beginPath(); x.arc(L+SPAN*pos,ty+6,15,0,7); x.fill();
   });
 
-  x.textAlign='center';
+  /* 궁합도 같이 넣는다. 축이 셋뿐이라 막대만 있으면 허전해 보인다 */
   x.strokeStyle=LINE;x.lineWidth=2;
-  x.beginPath();x.moveTo(380,1090);x.lineTo(W-380,1090);x.stroke();
-  /* 주소는 넣지 않는다. 긴 영문 주소가 한글 카드에서 눈에 거슬린다 */
-  x.fillStyle=MUT;x.font='400 27px '+B;
-  x.fillText('제작자 : 엘제유',W/2,1160);
+  x.beginPath();x.moveTo(220,1034);x.lineTo(W-220,1034);x.stroke();
+
+  [['잘 맞는 친구',GOOD[last.code],AC],
+   ['부딪히는 친구',BAD[last.code],WARM]].forEach(function(r,i){
+    const y=1092+i*56;
+    x.textAlign='left';
+    x.fillStyle=MUT; x.font='400 25px '+B;
+    x.fillText(r[0],L,y);
+    const lw=x.measureText(r[0]).width;
+    const val=r[1]+' · '+TYPES[r[1]].n;
+    x.textAlign='right';
+    x.fillStyle=r[2];
+    fit(x,val,SPAN-lw-40,27,'700',B);
+    x.fillText(val,R,y);
+  });
+
+  /* 주소와 제작자는 넣지 않는다. 그림이 지저분해 보인다 */
   return c;
 }
 
